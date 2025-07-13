@@ -3,16 +3,21 @@
     {
       "source": "/generate",
       "destination": "/server/index.js"
+    },
+    {
+      "source": "/(.*)", 
+      "destination": "/client/dist/$1"
     }
   ],
   "builds": [
     {
-      "src": "client/",
+      "src": "client/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist", 
+        "outputDirectory": "client/dist" 
       }
-    }, 
+    },
     {
       "src": "server/index.js",
       "use": "@vercel/node"
