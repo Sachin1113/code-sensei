@@ -7,9 +7,12 @@
   ],
   "builds": [
     {
-      "src": "client/index.html",
-      "use": "@vercel/static-build"
-    },
+      "src": "client/",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }, 
     {
       "src": "server/index.js",
       "use": "@vercel/node"
