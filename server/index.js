@@ -10,7 +10,7 @@ const port = process.env.PORT || 3001; // Use Vercel's port or 3001 locally
 // Configure CORS for your Vercel domains and localhost
 app.use(cors({
   origin: [
-    'https://code-sensei-theta.vercel.app.vercel.app', // IMPORTANT: Replace with your actual Vercel deployment URL after first deploy
+    'https://code-sensei-theta.vercel.app', // IMPORTANT: Replace with your actual Vercel deployment URL after first deploy
     'https://ai-code-sensei-sachindra-uniyals-projects.vercel.app', // Your preview URL pattern
     'http://localhost:5173' // For local frontend development
   ]
