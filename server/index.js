@@ -7,11 +7,10 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const app = express();
 const port = process.env.PORT || 3001; // Use Vercel's port or 3001 locally
 
-// Configure CORS for your Vercel domains and localhost
 app.use(cors({
   origin: [
-    'https://code-sensei-git-main-sachindra-uniyals-projects.vercel.app', // IMPORTANT: Replace with your actual Vercel deployment URL after first deploy
-    'https://ai-code-sensei-sachindra-uniyals-projects.vercel.app', // Your preview URL pattern
+    'https://code-sensei-git-main-sachindra-uniyals-projects.vercel.app', // Your primary production domain
+    'https://code-sensei-h4hpzybb3-sachindra-uniyals-projects.vercel.app', // Your latest preview domain
     'http://localhost:5173' // For local frontend development
   ]
 }));
