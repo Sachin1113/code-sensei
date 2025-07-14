@@ -1,26 +1,27 @@
 {
-  "rewrites": [
-    {
-      "source": "/generate",
-      "destination": "/server/index.js"
-    },
-    {
-      "source": "/(.*)", 
-      "destination": "/client/dist/$1"
-    }
-  ],
+  "version": 2,
   "builds": [
     {
-      "src": "client/package.json",
+      "src": "client/index.html",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist", 
-        "outputDirectory": "client/dist" 
+        "distDir": "client/dist"
       }
     },
     {
-      "src": "server/index.js",
+      "src": "api/generate.js",
       "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/generate",
+      "dest": "/api/generate.js",
+      "methods": ["POST", "OPTIONS"]
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/client/dist/$1"
     }
   ]
 }
