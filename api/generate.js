@@ -27,7 +27,7 @@ if (!geminiApiKey) {
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null; // Initialize only if key exists
 
 // Route for code generation - this will be exposed at /api/generate
-app.post('/generate', async (req, res) => {
+app.post('/', async (req, res) => {
   const { prompt } = req.body;
 
   if (!prompt) {
