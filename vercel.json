@@ -1,18 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    // REMOVE THE CLIENT BUILD ENTRY COMPLETELY
-    /*
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "npm run build",
-        "outputDirectory": "dist",
-        "rootDirectory": "client"
-      }
-    },
-    */
+  "builds": [ 
     {
       "src": "api/generate.js",
       "use": "@vercel/node"
@@ -26,7 +14,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/client/dist/$1" // Keep this route as it specifies where the client files *should* be
+      "dest": "/client/dist/$1" 
     }
   ]
 }
