@@ -1,34 +1,44 @@
-// api/generate.js  now changed(This file was previously server/index.js)
+// api/generate.js
 require('dotenv').config(); // Load environment variables from .env
-const express = require('express');
-const cors = require('cors');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const app = express();
-
-// Configure CORS for Vercel deployment
-app.use(cors({
-  origin: [
-    'https://code-sensei-git-main-sachindra-uniyals-projects.vercel.app',
-    'https://code-sensei-h4hpzybb3-sachindra-uniyals-projects.vercel.app',
-    'http://localhost:5173',
-    'https://code-sensei-theta.vercel.app' // Add your Vercel deployment URL here
-  ],
-  methods: ['GET', 'POST', 'OPTIONS'], // Allow OPTIONS for CORS preflight requests
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-app.use(express.json()); // To parse JSON request bodies
+// Configure CORS for Vercel deployment - NO LONGER NEEDED HERE if handling directly in vercel.json or frontend
+// If you uncomment, adjust origin for your frontend if it's different.
+// const cors = require('cors'); // You might not need cors if Vercel handles it via routes or your frontend client
 
 // Initialize Gemini API
 const geminiApiKey = process.env.GEMINI_API_KEY;
 if (!geminiApiKey) {
   console.error("GEMINI_API_KEY is not configured in Vercel environment variables.");
 }
-const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null; // Initialize only if key exists
+const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
-// Route for code generation - this will be exposed at /api/generate
-app.post('/', async (req, res) => {
-  const { prompt } = req.body;
+// This is the Vercel serverless function handler
+module.exports = async (req, res) => {
+  // CORS Headers for POST/OPTIONS
+  // This is a more direct way to handle CORS for a Vercel serverless function
+  res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-theta.vercel.app'); // Replace with your actual frontend URL(s)
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Ensure it's a POST request
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  // Parse JSON body manually if not using express.json()
+  let prompt;
+  try {
+    const body = JSON.parse(req.body); // req.body might be a string in serverless context
+    prompt = body.prompt;
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON body.' });
+  }
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt is required.' });
@@ -39,9 +49,8 @@ app.post('/', async (req, res) => {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Using 1.5 Flash for speed
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // --- UPDATED AND MORE ROBUST GEMINI PROMPT FOR FRONTEND FOCUS ---
     const geminiPrompt = `
       You are an expert frontend web developer assistant specializing in creating modern, visually appealing, and highly responsive user interfaces using HTML, CSS, and vanilla JavaScript. Your goal is to provide **complete, standalone frontend code** for single web pages or specific UI components.
 
@@ -85,7 +94,6 @@ app.post('/', async (req, res) => {
     const response = await result.response;
     const text = response.text();
 
-    // Parse the generated text into HTML, CSS, JS sections
     const htmlMatch = text.match(/HTML_START\n([\s\S]*?)\nHTML_END/);
     const cssMatch = text.match(/CSS_START\n([\s\S]*?)\nCSS_END/);
     const jsMatch = text.match(/JS_START\n([\s\S]*?)\nJS_END/);
@@ -96,7 +104,7 @@ app.post('/', async (req, res) => {
 
     console.log("Full Gemini Response Text:\n", text);
 
-    res.json({ html, css, js, fullText: text }); // Send structured response
+    res.json({ html, css, js, fullText: text });
   } catch (error) {
     console.error('Error calling Gemini API:', error.response ? error.response.data : error.message);
     let errorMessage = 'Failed to generate code from Gemini API.';
@@ -107,7 +115,4 @@ app.post('/', async (req, res) => {
     }
     res.status(500).json({ error: errorMessage, details: error.message });
   }
-});
-
-// Vercel serverless functions export the app instance.
-module.exports = app;
+};
