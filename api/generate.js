@@ -1,4 +1,4 @@
-// api/generate.js (This file was previously server/index.js)
+// api/generate.js  now changed(This file was previously server/index.js)
 require('dotenv').config(); // Load environment variables from .env
 const express = require('express');
 const cors = require('cors');
