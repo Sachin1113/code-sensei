@@ -1,6 +1,15 @@
 {
   "version": 2,
-  "builds": [ 
+  "builds": [
+    {
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "npm run build",
+        "outputDirectory": "dist",
+        "rootDirectory": "client"
+      }
+    },
     {
       "src": "api/generate.js",
       "use": "@vercel/node"
@@ -9,12 +18,12 @@
   "routes": [
     {
       "src": "/api/generate",
-      "dest": "/api/generate.js",
+      "dest": "/api/generate", // <-- CHANGE THIS LINE: Remove the .js extension from dest
       "methods": ["POST", "OPTIONS"]
     },
     {
       "src": "/(.*)",
-      "dest": "/client/dist/$1" 
+      "dest": "/client/dist/$1"
     }
   ]
 }
