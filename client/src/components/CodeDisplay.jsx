@@ -1,104 +1,120 @@
 // client/src/components/CodeDisplay.jsx
-import React, { useState, useEffect } from "react";
-import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vs2015 } from 'react-syntax-highlighter/dist/esm/styles/hljs'; // Dark theme
-import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';   // Light theme
-import html from 'react-syntax-highlighter/dist/esm/languages/hljs/xml'; // HTML is xml
-import css from 'react-syntax-highlighter/dist/esm/languages/hljs/css';
-import javascript from 'react-syntax-highlighter/dist/esm/languages/hljs/javascript';
 
-SyntaxHighlighter.registerLanguage('html', html);
-SyntaxHighlighter.registerLanguage('css', css);
-SyntaxHighlighter.registerLanguage('javascript', javascript);
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+
+// Lazy load the SyntaxHighlighter component
+const SyntaxHighlighter = lazy(() =>
+  import('react-syntax-highlighter').then(module => ({ default: module.Light || module.default }))
+);
 
 const CodeDisplay = ({ code }) => {
-  const [activeTab, setActiveTab] = useState("html");
-  const [copied, setCopied] = useState(false);
+  const [internalCodeTab, setInternalCodeTab] = useState('html');
+  const [styleModule, setStyleModule] = useState(null); // State to hold the loaded style module
 
+  // --- CONSOLE.LOGS FOR DEBUGGING ---
+  console.log("CodeDisplay - RENDER: internalCodeTab:", internalCodeTab, "styleModule:", styleModule);
+  console.log("CodeDisplay - Code prop at render:", code);
+  // --- END CONSOLE.LOGS ---
+
+  // UseEffect for loading style (runs ONCE on mount)
   useEffect(() => {
-    setActiveTab("html"); // Reset to HTML when new code is generated
-  }, [code]);
+    console.log("CodeDisplay - useEffect for style loading: Component MOUNTED.");
+    const loadStyle = async () => {
+      try {
+        // Import the style directly here and set it
+        const loadedStyle = await import('react-syntax-highlighter/dist/esm/styles/hljs/atom-one-dark');
+        setStyleModule(loadedStyle.default);
+        console.log("CodeDisplay - Style loaded successfully. styleModule is now set.");
+      } catch (error) {
+        console.error("CodeDisplay - Failed to load syntax highlighter style:", error);
+        setStyleModule({}); // Fallback to an empty object
+      }
+    };
+    loadStyle();
 
-  const getCodeContent = () => {
-    switch (activeTab) {
-      case "html": return code.html;
-      case "css": return code.css;
-      case "js": return code.js;
-      default: return "";
-    }
-  };
+    // Cleanup function for unmount (still important for verifying no unexpected unmounts)
+    return () => {
+      console.log("CodeDisplay - useEffect cleanup: Component UNMOUNTED.");
+    };
+  }, []); // Empty dependency array means runs once on initial mount
 
-  const getLanguage = () => {
-    switch (activeTab) {
-      case "html": return "html";
-      case "css": return "css";
-      case "js": return "javascript";
-      default: return "plaintext";
-    }
-  };
+  if (!code || (code.html === '' && code.css === '' && code.js === '')) {
+    return (
+      <div className="flex justify-center items-center h-full text-[#9CA3AF]"> {/* Updated text color */}
+        Generate some code to see it here!
+      </div>
+    );
+  }
 
-  const handleCopyCode = () => {
-    const codeToCopy = getCodeContent();
-    navigator.clipboard.writeText(codeToCopy)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(err => console.error('Failed to copy text: ', err));
-  };
+  // Determine which code to display
+  const displayCode = internalCodeTab === 'html' ? code.html :
+                      internalCodeTab === 'css' ? code.css :
+                      code.js; // Default to JS
 
-  const displayCode = getCodeContent();
+  const language = internalCodeTab === 'html' ? 'html' :
+                   internalCodeTab === 'css' ? 'css' :
+                   'javascript';
+
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center p-3 bg-gray-700 border-b border-gray-600">
-        <div className="flex space-x-2">
-          <button
-            className={`px-4 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === "html" ? "bg-blue-600 text-white" : "bg-gray-600 hover:bg-gray-500 text-gray-300"
-            }`}
-            onClick={() => setActiveTab("html")}
-          >
-            HTML
-          </button>
-          <button
-            className={`px-4 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === "css" ? "bg-blue-600 text-white" : "bg-gray-600 hover:bg-gray-500 text-gray-300"
-            }`}
-            onClick={() => setActiveTab("css")}
-          >
-            CSS
-          </button>
-          <button
-            className={`px-4 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === "js" ? "bg-blue-600 text-white" : "bg-gray-600 hover:bg-gray-500 text-gray-300"
-            }`}
-            onClick={() => setActiveTab("js")}
-          >
-            JS
-          </button>
-        </div>
+    <div className="p-4 overflow-auto h-full bg-[#111A23] rounded-lg shadow-inner flex flex-col"> {/* Updated bg color */}
+      <div className="flex space-x-2 mb-4 flex-shrink-0">
         <button
-          onClick={handleCopyCode}
-          className="px-4 py-1 rounded-md bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors duration-200"
+          onClick={() => setInternalCodeTab('html')}
+          className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
+            internalCodeTab === 'html' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' // Updated colors
+          }`}
         >
-          {copied ? "Copied!" : "Copy Code"}
+          HTML
+        </button>
+        <button
+          onClick={() => setInternalCodeTab('css')}
+          className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
+            internalCodeTab === 'css' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' // Updated colors, removed specific blue for consistency with accent
+          }`}
+        >
+          CSS
+        </button>
+        <button
+          onClick={() => setInternalCodeTab('js')}
+          className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
+            internalCodeTab === 'js' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' // Updated colors, removed specific purple for consistency with accent
+          }`}
+        >
+          JS
         </button>
       </div>
-      <div className="flex-1 overflow-auto bg-gray-800 rounded-b-lg p-0">
-        {displayCode ? (
-          <SyntaxHighlighter
-            language={getLanguage()}
-            style={vs2015} // Using dark theme for consistency
-            showLineNumbers={true}
-            className="h-full w-full p-4 text-sm"
-          >
-            {displayCode}
-          </SyntaxHighlighter>
+
+      <div className="flex-1 overflow-auto"> {/* This div handles the main scrolling */}
+        {styleModule ? ( // Only render Suspense/SyntaxHighlighter if styleModule is loaded
+          <Suspense fallback={
+            <div className="flex justify-center items-center h-full text-[#9CA3AF] text-lg"> {/* Updated text color */}
+              Loading Syntax Highlighter...
+            </div>
+          }>
+            <SyntaxHighlighter
+              language={language}
+              style={styleModule}
+              showLineNumbers
+              className="rounded-md"
+              wrapLines={true} // Crucial: Enable line wrapping from SyntaxHighlighter
+              customStyle={{
+                backgroundColor: 'transparent', // Ensure background is transparent to show parent bg
+                wordBreak: 'break-word', // Break words that are too long
+                whiteSpace: 'pre-wrap',  // Preserve whitespace but wrap lines
+                overflowX: 'hidden' // Hide horizontal scrollbar within the highlighter if it somehow appears
+              }}
+              lineProps={{
+                style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } // For individual lines
+              }}
+            >
+              {displayCode || (internalCodeTab === 'html' ? '// No HTML generated' : internalCodeTab === 'css' ? '/* No CSS generated */' : '// No JavaScript generated')}
+            </SyntaxHighlighter>
+          </Suspense>
         ) : (
-          <p className="p-4 text-center text-gray-400">
-            No code generated yet or this section is empty.
-          </p>
+          <div className="flex justify-center items-center h-full text-[#9CA3AF] text-lg"> {/* Updated text color */}
+            Applying syntax highlighting...
+          </div>
         )}
       </div>
     </div>

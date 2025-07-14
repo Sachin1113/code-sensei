@@ -2,3 +2,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* client/src/index.css or client/src/tailwind.css */
+
+/* Replace your existing .bg-gradient-dark rule with this one */
+.bg-gradient-dark {
+  /* A dark, sophisticated gradient with subtle blue-purple hints */
+  background-image: linear-gradient(to bottom right, #15161c, #0d0e13, #08080b);
+}

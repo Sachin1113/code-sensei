@@ -3,7 +3,7 @@ import React from "react";
 
 const HistoryPanel = ({ history, onHistoryItemClick }) => {
   return (
-    <div className="w-64 bg-gray-800 p-6 flex flex-col shadow-lg overflow-y-auto">
+    <div className="w-70 bg-gray-800 p-6 flex flex-col shadow-lg overflow-y-auto">
       <h2 className="text-2xl font-bold text-teal-400 mb-6">History</h2>
       {history.length === 0 ? (
         <p className="text-gray-400 text-sm">No history yet.</p>
