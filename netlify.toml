@@ -1,13 +1,18 @@
 [build]
   base = "/"
   publish = "client/dist"
-  # Change the command to ensure npm install runs in client before build
   command = "npm install --prefix client && npm run build --prefix client" 
 
 [functions]
   directory = "api"
+  # You can keep this or remove it, the plugin will handle installs.
+  # node_bundler = "esbuild" 
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Add this plugin to handle function dependencies
+[[plugins]]
+package = "@netlify/plugin-functions-install-core"
