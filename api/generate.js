@@ -9,7 +9,7 @@ if (!geminiApiKey) {
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
 module.exports = async (req, res) => {
- res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-33vp5sa0l-sachindra-uniyals-projects.vercel.app');
+ res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-smoky.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
