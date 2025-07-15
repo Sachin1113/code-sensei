@@ -26,6 +26,10 @@
       "methods": ["POST", "OPTIONS"]
     },
     {
+      "src": "/",           
+      "dest": "/client/dist/index.html" 
+    },
+    {
       "src": "/(.*)",
       "dest": "/client/dist/$1"
     }
