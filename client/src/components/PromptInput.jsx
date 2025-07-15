@@ -21,7 +21,7 @@ const PromptInput = ({ onCodeGenerated }) => {
     setError('');
 
     try {
-      const response = await axios.post('/api/generate', { prompt });
+       const response = await axios.post('https://sensei-code.netlify.app/.netlify/functions/generate', { prompt });
       const { html, css, js, fullText } = response.data;
 
       onCodeGenerated({ html, css, js, fullText }, prompt);
