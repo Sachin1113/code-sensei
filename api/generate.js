@@ -1,46 +1,38 @@
 // api/generate.js
-require('dotenv').config(); // Load environment variables from .env
+require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Initialize Gemini API
 const geminiApiKey = process.env.GEMINI_API_KEY;
 if (!geminiApiKey) {
   console.error("GEMINI_API_KEY is not configured in Vercel environment variables.");
 }
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
-// This is the Vercel serverless function handler
 module.exports = async (req, res) => {
-  // CORS Headers for POST/OPTIONS
-  res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-theta.vercel.app'); // Replace with your actual frontend URL(s)
+  res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-theta.vercel.app'); // IMPORTANT: Adjust for all your frontend deployment URLs
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  console.log('API Function Invoked!'); // For debugging
-  console.log('Request URL:', req.url); // For debugging
-  console.log('Request Method:', req.method); // For debugging
+  console.log('API Function Invoked!');
+  console.log('Request URL:', req.url);
+  console.log('Request Method:', req.method);
 
-  // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request.');
     return res.status(200).end();
   }
 
-  // Ensure it's a POST request
   if (req.method !== 'POST') {
     console.log('Method not POST:', req.method);
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Parse JSON body manually
   let prompt;
   try {
-    // req.body might be a string in serverless context, ensure it's parsed
     if (typeof req.body === 'string') {
         const body = JSON.parse(req.body);
         prompt = body.prompt;
     } else if (req.body && typeof req.body === 'object' && req.body.prompt) {
-        // If Vercel already parsed it (sometimes it does for JSON content-type)
         prompt = req.body.prompt;
     } else {
         return res.status(400).json({ error: 'Request body or prompt is missing/invalid.' });
@@ -60,7 +52,6 @@ module.exports = async (req, res) => {
 
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     const geminiPrompt = `
       You are an expert frontend web developer assistant specializing in creating modern, visually appealing, and highly responsive user interfaces using HTML, CSS, and vanilla JavaScript. Your goal is to provide **complete, standalone frontend code** for single web pages or specific UI components.
 
