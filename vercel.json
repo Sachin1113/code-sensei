@@ -12,13 +12,18 @@
     },
     {
       "src": "api/generate.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+         
+         "includeFiles": ["api/**"], 
+         "installCommand": "npm install"
+      }
     }
   ],
   "routes": [
     {
       "src": "/api/generate",
-      "dest": "/api/generate",
+      "dest": "/api/generate", 
       "methods": ["POST", "OPTIONS"]
     },
     {

@@ -2,10 +2,6 @@
 require('dotenv').config(); // Load environment variables from .env
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Configure CORS for Vercel deployment - NO LONGER NEEDED HERE if handling directly in vercel.json or frontend
-// If you uncomment, adjust origin for your frontend if it's different.
-// const cors = require('cors'); // You might not need cors if Vercel handles it via routes or your frontend client
-
 // Initialize Gemini API
 const geminiApiKey = process.env.GEMINI_API_KEY;
 if (!geminiApiKey) {
@@ -16,40 +12,41 @@ const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 // This is the Vercel serverless function handler
 module.exports = async (req, res) => {
   // CORS Headers for POST/OPTIONS
-  // This is a more direct way to handle CORS for a Vercel serverless function
-    console.log('API Function Invoked!'); // Add this
-  console.log('Request URL:', req.url); // Add this
-  console.log('Request Method:', req.method); // Add this
   res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-theta.vercel.app'); // Replace with your actual frontend URL(s)
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request.'); // Add this
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    console.log('Method not POST:', req.method); // Add this
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+  console.log('API Function Invoked!'); // For debugging
+  console.log('Request URL:', req.url); // For debugging
+  console.log('Request Method:', req.method); // For debugging
 
   // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request.');
     return res.status(200).end();
   }
 
   // Ensure it's a POST request
   if (req.method !== 'POST') {
+    console.log('Method not POST:', req.method);
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Parse JSON body manually if not using express.json()
+  // Parse JSON body manually
   let prompt;
   try {
-    const body = JSON.parse(req.body); // req.body might be a string in serverless context
-    prompt = body.prompt;
+    // req.body might be a string in serverless context, ensure it's parsed
+    if (typeof req.body === 'string') {
+        const body = JSON.parse(req.body);
+        prompt = body.prompt;
+    } else if (req.body && typeof req.body === 'object' && req.body.prompt) {
+        // If Vercel already parsed it (sometimes it does for JSON content-type)
+        prompt = req.body.prompt;
+    } else {
+        return res.status(400).json({ error: 'Request body or prompt is missing/invalid.' });
+    }
   } catch (e) {
+    console.error("Error parsing request body:", e);
     return res.status(400).json({ error: 'Invalid JSON body.' });
   }
 
