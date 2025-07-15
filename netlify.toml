@@ -1,22 +1,13 @@
 [build]
-  base = "/" # Tells Netlify to treat the repo root as the base
-  publish = "client/dist" # Path to your static frontend files
-  command = "npm run build --prefix client" # Run build command within the client directory
+  base = "/"
+  publish = "client/dist"
+  # Change the command to ensure npm install runs in client before build
+  command = "npm install --prefix client && npm run build --prefix client" 
 
 [functions]
-  directory = "api" # Path to your serverless functions
+  directory = "api"
 
-# Redirects for your frontend (similar to Vercel routes)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# Optionally, if your API needs specific handling for CORS preflight, though Netlify usually handles OPTIONS
-# automatically for functions.
-# [[redirects]]
-#   from = "/api/generate"
-#   to = "/.netlify/functions/generate" # Netlify's internal function path
-#   status = 200
-#   force = true
-#   headers = {Access-Control-Allow-Origin = "*", Access-Control-Allow-Methods = "POST, GET, OPTIONS", Access-Control-Allow-Headers = "Content-Type"}
