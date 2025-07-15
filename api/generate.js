@@ -151,7 +151,7 @@ exports.handler = async (event, context) => { // <--- THIS IS THE KEY CHANGE for
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ html, css, js, fullText }),
+            body: JSON.stringify({ html, css, js,text}),
         };
 
     } catch (geminiError) {
