@@ -1,11 +1,7 @@
 // api/generate.js
-// api/generate.js
 require('dotenv').config(); // Load environment variables from .env
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Configure CORS for Vercel deployment - NO LONGER NEEDED HERE if handling directly in vercel.json or frontend
-// If you uncomment, adjust origin for your frontend if it's different.
-// const cors = require('cors'); // You might not need cors if Vercel handles it via routes or your frontend client
 // Configure CORS for Vercel deployment - NO LONGER NEEDED HERE if handling directly in vercel.json or frontend
 // If you uncomment, adjust origin for your frontend if it's different.
 // const cors = require('cors'); // You might not need cors if Vercel handles it via routes or your frontend client
@@ -21,37 +17,22 @@ const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 module.exports = async (req, res) => {
   // CORS Headers for POST/OPTIONS
   // This is a more direct way to handle CORS for a Vercel serverless function
+    console.log('API Function Invoked!'); // Add this
+  console.log('Request URL:', req.url); // Add this
+  console.log('Request Method:', req.method); // Add this
   res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-theta.vercel.app'); // Replace with your actual frontend URL(s)
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // Handle preflight OPTIONS request
-  if (req.method === 'OPTIONS') {
+   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request.'); // Add this
     return res.status(200).end();
   }
 
-  // Ensure it's a POST request
   if (req.method !== 'POST') {
+    console.log('Method not POST:', req.method); // Add this
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-
-  // Parse JSON body manually if not using express.json()
-  let prompt;
-  try {
-    const body = JSON.parse(req.body); // req.body might be a string in serverless context
-    prompt = body.prompt;
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid JSON body.' });
-  }
-const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-
-// This is the Vercel serverless function handler
-module.exports = async (req, res) => {
-  // CORS Headers for POST/OPTIONS
-  // This is a more direct way to handle CORS for a Vercel serverless function
-  res.setHeader('Access-Control-Allow-Origin', 'https://code-sensei-theta.vercel.app'); // Replace with your actual frontend URL(s)
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
@@ -81,7 +62,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const geminiPrompt = `
@@ -137,7 +117,6 @@ module.exports = async (req, res) => {
 
     console.log("Full Gemini Response Text:\n", text);
 
-    res.json({ html, css, js, fullText: text });
     res.json({ html, css, js, fullText: text });
   } catch (error) {
     console.error('Error calling Gemini API:', error.response ? error.response.data : error.message);
