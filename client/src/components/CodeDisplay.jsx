@@ -1,42 +1,40 @@
-// client/src/components/CodeDisplay.jsx
-
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 
-// Lazy load the SyntaxHighlighter component
+
 const SyntaxHighlighter = lazy(() =>
   import('react-syntax-highlighter').then(module => ({ default: module.Light || module.default }))
 );
 
 const CodeDisplay = ({ code }) => {
   const [internalCodeTab, setInternalCodeTab] = useState('html');
-  const [styleModule, setStyleModule] = useState(null); // State to hold the loaded style module
+  const [styleModule, setStyleModule] = useState(null); 
 
-  // --- CONSOLE.LOGS FOR DEBUGGING ---
+  // --- LOGS FOR DEBUGGING ---
   console.log("CodeDisplay - RENDER: internalCodeTab:", internalCodeTab, "styleModule:", styleModule);
   console.log("CodeDisplay - Code prop at render:", code);
   // --- END CONSOLE.LOGS ---
 
-  // UseEffect for loading style (runs ONCE on mount)
+  //  for loading style
   useEffect(() => {
     console.log("CodeDisplay - useEffect for style loading: Component MOUNTED.");
     const loadStyle = async () => {
       try {
-        // Import the style directly here and set it
+        
         const loadedStyle = await import('react-syntax-highlighter/dist/esm/styles/hljs/atom-one-dark');
         setStyleModule(loadedStyle.default);
         console.log("CodeDisplay - Style loaded successfully. styleModule is now set.");
       } catch (error) {
         console.error("CodeDisplay - Failed to load syntax highlighter style:", error);
-        setStyleModule({}); // Fallback to an empty object
+        setStyleModule({}); 
       }
     };
     loadStyle();
 
-    // Cleanup function for unmount (still important for verifying no unexpected unmounts)
+    
     return () => {
       console.log("CodeDisplay - useEffect cleanup: Component UNMOUNTED.");
     };
-  }, []); // Empty dependency array means runs once on initial mount
+  }, []); 
 
   if (!code || (code.html === '' && code.css === '' && code.js === '')) {
     return (
@@ -46,10 +44,10 @@ const CodeDisplay = ({ code }) => {
     );
   }
 
-  // Determine which code to display
+  
   const displayCode = internalCodeTab === 'html' ? code.html :
                       internalCodeTab === 'css' ? code.css :
-                      code.js; // Default to JS
+                      code.js;
 
   const language = internalCodeTab === 'html' ? 'html' :
                    internalCodeTab === 'css' ? 'css' :
@@ -62,7 +60,7 @@ const CodeDisplay = ({ code }) => {
         <button
           onClick={() => setInternalCodeTab('html')}
           className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
-            internalCodeTab === 'html' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' // Updated colors
+            internalCodeTab === 'html' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' 
           }`}
         >
           HTML
@@ -70,7 +68,7 @@ const CodeDisplay = ({ code }) => {
         <button
           onClick={() => setInternalCodeTab('css')}
           className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
-            internalCodeTab === 'css' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' // Updated colors, removed specific blue for consistency with accent
+            internalCodeTab === 'css' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' 
           }`}
         >
           CSS
@@ -78,7 +76,7 @@ const CodeDisplay = ({ code }) => {
         <button
           onClick={() => setInternalCodeTab('js')}
           className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
-            internalCodeTab === 'js' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' // Updated colors, removed specific purple for consistency with accent
+            internalCodeTab === 'js' ? 'bg-[#212E3B] text-[#20C29F]' : 'bg-[#0A141F] text-[#E0E7EB] hover:bg-[#212E3B]' 
           }`}
         >
           JS
@@ -97,15 +95,15 @@ const CodeDisplay = ({ code }) => {
               style={styleModule}
               showLineNumbers
               className="rounded-md"
-              wrapLines={true} // Crucial: Enable line wrapping from SyntaxHighlighter
+              wrapLines={true} 
               customStyle={{
-                backgroundColor: 'transparent', // Ensure background is transparent to show parent bg
-                wordBreak: 'break-word', // Break words that are too long
-                whiteSpace: 'pre-wrap',  // Preserve whitespace but wrap lines
-                overflowX: 'hidden' // Hide horizontal scrollbar within the highlighter if it somehow appears
+                backgroundColor: 'transparent', 
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap', 
+                overflowX: 'hidden' 
               }}
               lineProps={{
-                style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } // For individual lines
+                style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } 
               }}
             >
               {displayCode || (internalCodeTab === 'html' ? '// No HTML generated' : internalCodeTab === 'css' ? '/* No CSS generated */' : '// No JavaScript generated')}

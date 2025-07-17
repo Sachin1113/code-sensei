@@ -1,19 +1,15 @@
-// client/src/components/PreviewWindow.jsx
 import React, { useRef, useEffect } from 'react';
 
 const PreviewWindow = ({ code }) => {
   const iframeRef = useRef(null);
 
-  // DEBUG LOG 1: Log the 'code' prop as soon as the component renders or updates
-  console.log('PreviewWindow: Received code prop:', code); // This should now log an object {html, css, js}
+  console.log('PreviewWindow: Received code prop:', code); 
 
   useEffect(() => {
-    // DEBUG LOG 2: Log 'code' and iframeRef.current when useEffect starts
+   
     console.log('PreviewWindow useEffect: code prop at start:', code);
     console.log('PreviewWindow useEffect: iframeRef.current at start:', iframeRef.current);
 
-
-    // We only proceed if iframe is ready AND if 'code' has actual HTML content
     if (!iframeRef.current) {
       console.warn('PreviewWindow useEffect: iframeRef.current is null. Cannot render preview yet.');
       return; // Exit if iframe is not ready
@@ -32,7 +28,7 @@ const PreviewWindow = ({ code }) => {
     const iframe = iframeRef.current;
     const doc = iframe.contentDocument || iframe.contentWindow.document;
 
-    // DEBUG LOG 3: Log the content just before writing to iframe
+
     console.log('PreviewWindow useEffect: Attempting to write to iframe. HTML length:', code.html.length);
     console.log('PreviewWindow useEffect: First 100 chars of HTML:', code.html.substring(0, 100));
     console.log('PreviewWindow useEffect: CSS length:', code.css.length);
@@ -79,13 +75,13 @@ const PreviewWindow = ({ code }) => {
     }
 
 
-    // Optional: Add an error listener for scripts inside the iframe
+  
     iframe.contentWindow.onerror = (message, source, lineno, colno, error) => {
       console.error("Error detected inside preview iframe:", { message, source, lineno, colno, error });
-      return true; // Prevent default browser error reporting
+      return true; 
     };
 
-  }, [code]); // Dependency array: re-run this effect when 'code' prop changes
+  }, [code]); 
 
   return (
     <div className="w-full h-full bg-white rounded-b-lg overflow-hidden flex items-center justify-center">

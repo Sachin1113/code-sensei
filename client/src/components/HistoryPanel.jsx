@@ -1,4 +1,3 @@
-// client/src/components/HistoryPanel.jsx
 import React from "react";
 
 const HistoryPanel = ({ history, onHistoryItemClick }) => {
@@ -15,7 +14,7 @@ const HistoryPanel = ({ history, onHistoryItemClick }) => {
               <button
                 onClick={() => onHistoryItemClick(item)}
                 className="text-gray-300 hover:text-white hover:underline cursor-pointer text-left w-full truncate"
-                title={item.prompt} // Show full prompt on hover
+                title={item.prompt} 
               >
                 {item.prompt}
               </button>

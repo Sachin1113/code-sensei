@@ -1,4 +1,3 @@
-// client/src/components/PromptInput.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
 
@@ -38,7 +37,7 @@ const PromptInput = ({ onCodeGenerated }) => {
   return (
     <>
       <textarea
-        className="w-full p-3 bg-[#0A141F] border border-[#2C3A4B] rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C29F] text-[#E0E7EB] resize-none h-20" // Updated colors
+        className="w-full p-3 bg-[#0A141F] border border-[#2C3A4B] rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C29F] text-[#E0E7EB] resize-none h-20"
         placeholder="Describe the UI you want to generate..."
         value={prompt}
         onChange={handlePromptChange}
@@ -49,7 +48,7 @@ const PromptInput = ({ onCodeGenerated }) => {
       <button
         onClick={handleSubmit}
         className={`w-full py-3 rounded-md font-bold text-lg transition-colors duration-300
-          ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-[#20C29F] hover:bg-[#1A9F82]'}`} // Updated colors
+          ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-[#20C29F] hover:bg-[#1A9F82]'}`} 
         disabled={loading}
       >
         {loading ? 'Generating...' : 'Generate Code'}

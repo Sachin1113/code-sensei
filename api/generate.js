@@ -1,44 +1,32 @@
-// api/generate.js
-
-// Ensure dotenv is configured at the very top
 require('dotenv').config();
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Access your API key as an environment variable
+
 const API_KEY = process.env.GEMINI_API_KEY;
-
-// For Netlify Functions, you need to export a function named 'handler'
-// The parameters for Netlify Functions are (event, context)
-exports.handler = async (event, context) => { // <--- THIS IS THE KEY CHANGE for Netlify
-    // Netlify Functions receive HTTP request details in the 'event' object
-    // The request body is in event.body (and might be base64 encoded)
-    // The HTTP method is in event.httpMethod
-    // Headers are in event.headers
-
-    // Set CORS headers for all responses
+exports.handler = async (event, context) => { 
     const headers = {
-        'Access-Control-Allow-Origin': 'https://sensei-code.netlify.app', // <--- YOUR NETLIFY FRONTEND DOMAIN HERE
+        'Access-Control-Allow-Origin': 'https://sensei-code.netlify.app', 
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Content-Type': 'application/json; charset=utf-8', // Good practice for JSON responses
+        'Content-Type': 'application/json; charset=utf-8',
         'X-Content-Type-Options': 'nosniff', // Security header
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', // Recommended for API responses
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 
         'Pragma': 'no-cache',
         'Expires': '0',
     };
 
-    // Handle CORS preflight requests (OPTIONS method)
+  
     if (event.httpMethod === 'OPTIONS') {
         console.log('Handling OPTIONS request.');
         return {
             statusCode: 200,
-            headers, // Use the defined headers
+            headers, 
             body: 'OK',
         };
     }
 
-    // Ensure it's a POST request
+    
     if (event.httpMethod !== 'POST') {
         console.log('Method not POST:', event.httpMethod);
         return {
@@ -48,7 +36,7 @@ exports.handler = async (event, context) => { // <--- THIS IS THE KEY CHANGE for
         };
     }
 
-    // Parse the request body
+
     let prompt;
     try {
         if (!event.body) {
@@ -58,7 +46,7 @@ exports.handler = async (event, context) => { // <--- THIS IS THE KEY CHANGE for
                 body: JSON.stringify({ error: 'Request body is missing.' }),
             };
         }
-        // Netlify functions might base64 encode the body for certain content types
+       
         const requestBody = JSON.parse(event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body);
         prompt = requestBody.prompt;
     } catch (parseError) {
@@ -70,7 +58,7 @@ exports.handler = async (event, context) => { // <--- THIS IS THE KEY CHANGE for
         };
     }
 
-    // Log the prompt for debugging
+ 
     console.log('API Function Invoked!');
     console.log('Received Prompt:', prompt);
 

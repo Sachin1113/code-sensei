@@ -1,5 +1,3 @@
-// client/src/App.jsx
-
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import PromptInput from './components/PromptInput';
 import PreviewWindow from './components/PreviewWindow';
@@ -61,17 +59,17 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen bg-gradient-dark text-gray-100 font-sans">
-      {/* Header Section */}
-      <header className="flex-shrink-0 p-4 bg-[#111A23] shadow-lg flex items-center justify-between"> {/* Updated bg-gray-800 */}
-        <h1 className="text-2xl font-bold text-[#20C29F] flex items-center"> {/* Updated text-teal-400 */}
+
+      <header className="flex-shrink-0 p-4 bg-[#111A23] shadow-lg flex items-center justify-between"> 
+        <h1 className="text-2xl font-bold text-[#20C29F] flex items-center"> 
           <span role="img" aria-label="lightbulb" className="mr-2 text-yellow-400">💡</span> Ask SenSei
         </h1>
       </header>
 
-      {/* Main Content Area */}
+     
       <main className="flex flex-1 overflow-hidden p-4">
-        {/* History Panel (Left Sidebar) */}
-        <div className="w-1/4 flex-shrink-0 bg-[#111A23] p-4 rounded-lg shadow-md mr-4 overflow-y-auto"> {/* Updated bg-gray-800 */}
+     
+        <div className="w-1/4 flex-shrink-0 bg-[#111A23] p-4 rounded-lg shadow-md mr-4 overflow-y-auto"> 
           <HistoryPanel history={history} onHistoryItemClick={handleHistoryItemClick} />
           {history.length > 0 && (
             <button
@@ -83,19 +81,19 @@ function App() {
           )}
         </div>
 
-        {/* Central Content Area (Prompt Input, Code/Preview Tabs, and Display) */}
-        <div className="flex-1 flex flex-col bg-[#111A23] p-4 rounded-lg shadow-xl"> {/* Updated bg-gray-800 */}
-          {/* Prompt Input Section */}
+       
+        <div className="flex-1 flex flex-col bg-[#111A23] p-4 rounded-lg shadow-xl">
+         
           <div className="flex-shrink-0 mb-4">
             <PromptInput onCodeGenerated={handleCodeGenerated} />
           </div>
 
-          {/* Code and Preview Buttons */}
+          
           <div className="flex flex-shrink-0 space-x-2 mb-4">
             <button
               onClick={() => setActiveView('code')}
               className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
-                activeView === 'code' ? 'bg-[#20C29F] text-white shadow-md' : 'bg-[#212E3B] text-[#E0E7EB] hover:bg-[#2C3A4B]' // Updated colors
+                activeView === 'code' ? 'bg-[#20C29F] text-white shadow-md' : 'bg-[#212E3B] text-[#E0E7EB] hover:bg-[#2C3A4B]' 
               }`}
             >
               Code
@@ -103,15 +101,15 @@ function App() {
             <button
               onClick={() => setActiveView('preview')}
               className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
-                activeView === 'preview' ? 'bg-[#20C29F] text-white shadow-md' : 'bg-[#212E3B] text-[#E0E7EB] hover:bg-[#2C3A4B]' // Updated colors
+                activeView === 'preview' ? 'bg-[#20C29F] text-white shadow-md' : 'bg-[#212E3B] text-[#E0E7EB] hover:bg-[#2C3A4B]' 
               }`}
             >
               Preview
             </button>
           </div>
 
-          {/* Conditional Rendering of CodeDisplay or PreviewWindow */}
-          <div className="flex-1 border border-[#2C3A4B] rounded-lg overflow-hidden relative"> {/* Updated border-gray-700 */}
+          
+          <div className="flex-1 border border-[#2C3A4B] rounded-lg overflow-hidden relative"> 
             <Suspense fallback={
               <div className="flex justify-center items-center h-full text-gray-400 text-xl">
                 Loading Content...
