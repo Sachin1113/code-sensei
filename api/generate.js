@@ -8,7 +8,6 @@ const API_KEY = process.env.GEMINI_API_KEY;
 const MAX_RETRIES = 3;
 const INITIAL_DELAY_MS = 1000;
 // CRITICAL: Set the Gemini API call timeout to 8 seconds (8000ms). 
-// This leaves 2 seconds for Netlify to execute the rest of the function (JSON parsing, response return).
 const GEMINI_TIMEOUT_MS = 8000; 
 
 // --- Retry Utility Function ---
@@ -95,10 +94,8 @@ exports.handler = async (event) => {
         const apiCall = () => model.generateContent({
             systemInstruction: { parts: [{ text: systemInstructionText.trim() }] },
             contents: [{ role: "user", parts: [{ text: fullUserQuery.trim() }] }],
-            // ADDED: Explicit timeout for the AI generation
-            config: {
-                timeout: GEMINI_TIMEOUT_MS, 
-            },
+            // FIX: Removed the invalid 'config' wrapper and put timeout here
+            timeout: GEMINI_TIMEOUT_MS, 
         });
 
         // Execute the call with retries
@@ -132,6 +129,7 @@ exports.handler = async (event) => {
         let errorMessage = 'Failed to generate code from Gemini API.';
 
         if (geminiError.message && geminiError.message.includes('timeout')) {
+             // This is the specific error when the 8-second internal timeout is hit
              errorMessage = 'Generation took too long (over 8 seconds). Please try a shorter or simpler prompt.';
         } else if (geminiError.message) {
             errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
