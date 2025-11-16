@@ -2,12 +2,39 @@ require('dotenv').config();
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Setting the preferred model
+// --- Configuration Constants ---
 const MODEL_NAME = "gemini-2.5-flash";
 const API_KEY = process.env.GEMINI_API_KEY;
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 1000; // 1 second initial delay
 
-// 1. Separate the detailed instructions into a SYSTEM_INSTRUCTION constant.
-// This block contains both the instruction persona and the fixed output template structure.
+// --- Retry Utility Function ---
+// Implements exponential backoff to handle transient network errors (like 502/504)
+async function fetchWithRetries(apiCall, maxRetries, initialDelay) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const result = await apiCall();
+            // Success, return result immediately
+            return result;
+        } catch (error) {
+            // Check if it's the last attempt
+            if (i === maxRetries - 1) {
+                console.error(`Final attempt failed. Throwing error:`, error.message);
+                throw error;
+            }
+
+            // Calculate exponential backoff delay
+            const delay = initialDelay * Math.pow(2, i);
+            console.warn(`Attempt ${i + 1} failed. Retrying in ${delay / 1000}s...`);
+
+            // Wait before the next attempt
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
+
+// --- System Instruction and Template ---
 const SYSTEM_INSTRUCTION = `
 You are an expert frontend web developer assistant specializing in creating modern, visually appealing, and highly responsive user interfaces using HTML, CSS, and vanilla JavaScript (ES6+). Your goal is to provide **complete, standalone frontend code** for single web pages or specific UI components.
 
@@ -41,6 +68,7 @@ JS_START
 JS_END
 `;
 
+// --- Netlify Handler Function ---
 exports.handler = async (event) => {
     // Standard CORS and Security Headers
     const headers = {
@@ -54,12 +82,9 @@ exports.handler = async (event) => {
         'Expires': '0',
     };
 
-    // Handle CORS preflight (OPTIONS)
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: 'OK' };
     }
-
-    // Ensure POST method
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
@@ -69,7 +94,6 @@ exports.handler = async (event) => {
         if (!event.body) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body is missing.' }) };
         }
-
         const bodyString = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
         const requestBody = JSON.parse(bodyString);
         prompt = requestBody.prompt;
@@ -81,39 +105,35 @@ exports.handler = async (event) => {
     if (!prompt) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Prompt is required.' }) };
     }
-
     if (!API_KEY) {
         console.error("GEMINI_API_KEY is not set in environment variables!");
         return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: API Key missing.' }) };
     }
 
-    // --- Core Fix: Using Configuration Object for Generation ---
+    // --- API Call Execution ---
     try {
         const genAI = new GoogleGenerativeAI(API_KEY);
         const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-        // Split the SYSTEM_INSTRUCTION into two parts:
-        // 1. The instruction block (everything before "User Request:")
-        // 2. The output template (everything after "User Request:")
         const [systemInstructionText, outputTemplate] = SYSTEM_INSTRUCTION.split("User Request:");
 
-        // Construct the full user query by combining the user's prompt and the template structure.
         const fullUserQuery = `
             ${prompt}
             ---
             User Request: ${outputTemplate}
         `;
-
-        const result = await model.generateContent({
-            // Pass the detailed instructions as a separate system role
+        
+        // Define the API call as a function to be passed to the retry wrapper
+        const apiCall = () => model.generateContent({
             systemInstruction: { parts: [{ text: systemInstructionText.trim() }] },
-            // Pass the user's content (which includes the prompt and the template)
             contents: [{ role: "user", parts: [{ text: fullUserQuery.trim() }] }],
         });
 
+        // Execute the call with retries
+        const result = await fetchWithRetries(apiCall, MAX_RETRIES, INITIAL_DELAY_MS);
+
         const response = result.response;
         
-        // Basic check for content safety or empty response
         if (!response.text) {
              const safetyError = response.candidates?.[0]?.safetyRatings;
              throw new Error(`Model response was empty or blocked. Safety details: ${JSON.stringify(safetyError)}`);
@@ -121,13 +141,11 @@ exports.handler = async (event) => {
 
         const text = response.text.trim();
 
-        // Regex to safely extract content between markers
-        // Note: [\s\S]*? is used to match any character including newlines (non-greedy)
+        // Regex extraction logic remains the same
         const htmlMatch = text.match(/HTML_START\n([\s\S]*?)\nHTML_END/);
         const cssMatch = text.match(/CSS_START\n([\s\S]*?)\nCSS_END/);
         const jsMatch = text.match(/JS_START\n([\s\S]*?)\nJS_END/);
 
-        // Extract content, ensuring it's trimmed and defaults to an empty string if not found
         const html = htmlMatch && htmlMatch[1] ? htmlMatch[1].trim() : '';
         const css = cssMatch && cssMatch[1] ? cssMatch[1].trim() : '';
         const js = jsMatch && jsMatch[1] ? jsMatch[1].trim() : '';
@@ -135,17 +153,18 @@ exports.handler = async (event) => {
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ html, css, js, text }), // Include 'text' for logging/debugging
+            body: JSON.stringify({ html, css, js, text }),
         };
 
     } catch (geminiError) {
-        console.error('Error calling Gemini API:', geminiError.message || geminiError);
+        console.error('Final failure calling Gemini API:', geminiError.message || geminiError);
         let errorMessage = 'Failed to generate code from Gemini API.';
 
         if (geminiError.message) {
             errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
         }
 
+        // Return 500 status for final, persistent failures
         return {
             statusCode: 500,
             headers,
