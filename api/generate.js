@@ -82,12 +82,14 @@ exports.handler = async (event) => {
 
         const response = finalResult.response;
         
-        // FIX for: response.text.trim is not a function
+        // **CRITICAL FIX: Check if response.text exists before using it**
         const rawText = response.text;
 
         if (typeof rawText !== 'string' || rawText.length === 0) {
-             const safetyError = response.candidates?.[0]?.safetyRatings;
-             throw new Error(`Model returned invalid or no text. Blocked content details: ${JSON.stringify(safetyError)}`);
+             const safetyRatings = response.candidates?.[0]?.safetyRatings;
+             // Now report the safety ratings if they exist, to provide context
+             const safetyDetails = safetyRatings ? JSON.stringify(safetyRatings) : 'No content was generated.';
+             throw new Error(`Model returned invalid or no text. Content failure reason: ${safetyDetails}`);
         }
 
         const text = rawText.trim();
@@ -97,16 +99,26 @@ exports.handler = async (event) => {
         const firstBrace = text.indexOf('{');
         const lastBrace = text.lastIndexOf('}');
         
+        // Ensure both braces exist and the closing brace is after the opening one
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
             jsonText = text.substring(firstBrace, lastBrace + 1);
+        } else {
+             // Fallback if the JSON structure is missing/invalid
+             throw new Error(`Could not locate a valid JSON block in the model's response. Raw output starts with: ${text.substring(0, 150)}`);
         }
         
         let parsedJson;
         try {
+            // Use JSON.parse with a final safety check
             parsedJson = JSON.parse(jsonText);
         } catch (e) {
              // Throws an error for the outer catch block to handle and report
-             throw new Error(`Failed to parse JSON response: ${e.message}. Raw text snippet: ${jsonText.substring(0, 100)}...`);
+             throw new Error(`Failed to parse final JSON object: ${e.message}. Snippet: ${jsonText.substring(0, 100)}...`);
+        }
+
+        // Final check on structure
+        if (typeof parsedJson.html !== 'string' || typeof parsedJson.css !== 'string' || typeof parsedJson.js !== 'string') {
+             throw new Error('Parsed JSON object is missing required keys (html, css, or js).');
         }
 
         const html = parsedJson.html || '';
@@ -119,22 +131,22 @@ exports.handler = async (event) => {
             body: JSON.stringify({ html, css, js, text }),
         };
 
-    } catch (geminiError) {
-        console.error('Final function processing error:', geminiError.message || geminiError);
+    } catch (finalError) {
+        console.error('Final function processing error:', finalError.message || finalError);
         let errorMessage = 'Failed to generate code from Gemini API.';
 
-        if (geminiError.message && geminiError.message.includes('10-second limit')) {
+        if (finalError.message && finalError.message.includes('10-second limit')) {
              // 504 Timeout error
             errorMessage = 'Generation request timed out (Netlify 10-second limit exceeded). Please try a shorter or simpler prompt, like "A blue button."';
-        } else if (geminiError.message) {
-            errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
+        } else if (finalError.message) {
+            errorMessage += ` Details: ${finalError.message.substring(0, 300)}.`;
         }
 
         // Returns a 500 status to the client
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: errorMessage, fullError: geminiError.message }),
+            body: JSON.stringify({ error: errorMessage, fullError: finalError.message }),
         };
     }
 };
