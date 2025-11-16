@@ -6,14 +6,17 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const MODEL_NAME = "gemini-2.5-flash"; // Fastest model
 const MAX_RETRIES = 2; // Try up to 2 times (initial + 1 retry)
 
-// --- Prompt Template (Forcing Minimal JSON Output) ---
-const CONDENSED_PROMPT_TEMPLATE = (userPrompt) => `
-Generate a single JSON object for the UI request. The object MUST contain 'html', 'css', and 'js' keys. The 'html' value must exclude DOCTYPE, html, head, or body tags. Be extremely concise.
-
-User Request: ${userPrompt}
-
-JSON:
-`;
+// --- JSON Schema for Guaranteed Output Format ---
+const responseSchema = {
+    type: "OBJECT",
+    properties: {
+        html: { type: "STRING", description: "The HTML structure, excluding <html>, <head>, and <body> tags." },
+        css: { type: "STRING", description: "The CSS styles to be included in a <style> block." },
+        js: { type: "STRING", description: "The JavaScript code to be included in a <script> block." }
+    },
+    required: ["html", "css", "js"],
+    propertyOrdering: ["html", "css", "js"]
+};
 
 // --- Netlify Handler Function ---
 exports.handler = async (event) => {
@@ -50,13 +53,16 @@ exports.handler = async (event) => {
     // --- API Call Execution with Retry Logic ---
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    const fullPrompt = CONDENSED_PROMPT_TEMPLATE(prompt);
     let finalResult = null;
 
     for (let i = 0; i < MAX_RETRIES; i++) {
         try {
             const result = await model.generateContent({
-                contents: [{ role: "user", parts: [{ text: fullPrompt.trim() }] }],
+                contents: [{ role: "user", parts: [{ text: prompt.trim() }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                },
             });
             finalResult = result;
             break; // Success! Break the retry loop.
@@ -82,53 +88,38 @@ exports.handler = async (event) => {
 
         const response = finalResult.response;
         
-        // **CRITICAL FIX: Check if response.text exists before using it**
-        const rawText = response.text;
+        // **CRITICAL: The response.text here MUST be pure JSON because of the schema**
+        const jsonText = response.text;
 
-        if (typeof rawText !== 'string' || rawText.length === 0) {
+        if (typeof jsonText !== 'string' || jsonText.length === 0) {
              const safetyRatings = response.candidates?.[0]?.safetyRatings;
-             // Now report the safety ratings if they exist, to provide context
              const safetyDetails = safetyRatings ? JSON.stringify(safetyRatings) : 'No content was generated.';
              throw new Error(`Model returned invalid or no text. Content failure reason: ${safetyDetails}`);
-        }
-
-        const text = rawText.trim();
-        let jsonText = text;
-
-        // Extract JSON block (robustly searches for the first '{' and last '}')
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        
-        // Ensure both braces exist and the closing brace is after the opening one
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = text.substring(firstBrace, lastBrace + 1);
-        } else {
-             // Fallback if the JSON structure is missing/invalid
-             throw new Error(`Could not locate a valid JSON block in the model's response. Raw output starts with: ${text.substring(0, 150)}`);
         }
         
         let parsedJson;
         try {
-            // Use JSON.parse with a final safety check
-            parsedJson = JSON.parse(jsonText);
+            // Attempt to parse the pure JSON string
+            parsedJson = JSON.parse(jsonText.trim());
         } catch (e) {
              // Throws an error for the outer catch block to handle and report
-             throw new Error(`Failed to parse final JSON object: ${e.message}. Snippet: ${jsonText.substring(0, 100)}...`);
+             throw new Error(`Failed to parse final JSON object from schema: ${e.message}. Snippet: ${jsonText.substring(0, 100)}...`);
         }
 
-        // Final check on structure
+        // Final check on structure based on the schema
         if (typeof parsedJson.html !== 'string' || typeof parsedJson.css !== 'string' || typeof parsedJson.js !== 'string') {
-             throw new Error('Parsed JSON object is missing required keys (html, css, or js).');
+             throw new Error('Parsed JSON object is missing required keys (html, css, or js) despite schema.');
         }
 
-        const html = parsedJson.html || '';
-        const css = parsedJson.css || '';
-        const js = parsedJson.js || '';
+        const html = parsedJson.html;
+        const css = parsedJson.css;
+        const js = parsedJson.js;
+        const fullText = jsonText; // Store the raw JSON for reference
 
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ html, css, js, text }),
+            body: JSON.stringify({ html, css, js, fullText }),
         };
 
     } catch (finalError) {
