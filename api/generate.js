@@ -3,12 +3,15 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // --- Configuration Constants ---
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-2.5-flash"; // Keeping flash for speed
 const API_KEY = process.env.GEMINI_API_KEY;
 const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 1000; // 1 second initial delay
+const INITIAL_DELAY_MS = 1000;
+// CRITICAL: Set the Gemini API call timeout to 8 seconds (8000ms). 
+// This leaves 2 seconds for Netlify to execute the rest of the function (JSON parsing, response return).
+const GEMINI_TIMEOUT_MS = 8000; 
 
-// --- Retry Utility Function (Kept for robustness) ---
+// --- Retry Utility Function ---
 async function fetchWithRetries(apiCall, maxRetries, initialDelay) {
     for (let i = 0; i < maxRetries; i++) {
         try {
@@ -27,7 +30,7 @@ async function fetchWithRetries(apiCall, maxRetries, initialDelay) {
 }
 
 
-// --- System Instruction and Template (CRITICALLY Minimized) ---
+// --- System Instruction and Template (Minimized for speed) ---
 const SYSTEM_INSTRUCTION = `
 You are an expert frontend developer providing **complete, standalone** HTML, CSS, and vanilla JS (ES6+). Generate code **ONLY** within the specified markers.
 
@@ -60,18 +63,12 @@ exports.handler = async (event) => {
         'Expires': '0',
     };
 
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers, body: 'OK' };
-    }
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-    }
+    if (event.httpMethod === 'OPTIONS') { return { statusCode: 200, headers, body: 'OK' }; }
+    if (event.httpMethod !== 'POST') { return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) }; }
 
     let prompt;
     try {
-        if (!event.body) {
-            return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body is missing.' }) };
-        }
+        if (!event.body) { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Request body is missing.' }) }; }
         const bodyString = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
         const requestBody = JSON.parse(bodyString);
         prompt = requestBody.prompt;
@@ -79,12 +76,8 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON in request body.' }) };
     }
 
-    if (!prompt) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Prompt is required.' }) };
-    }
-    if (!API_KEY) {
-        return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: API Key missing.' }) };
-    }
+    if (!prompt) { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Prompt is required.' }) }; }
+    if (!API_KEY) { return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: API Key missing.' }) }; }
 
     // --- API Call Execution ---
     try {
@@ -102,8 +95,13 @@ exports.handler = async (event) => {
         const apiCall = () => model.generateContent({
             systemInstruction: { parts: [{ text: systemInstructionText.trim() }] },
             contents: [{ role: "user", parts: [{ text: fullUserQuery.trim() }] }],
+            // ADDED: Explicit timeout for the AI generation
+            config: {
+                timeout: GEMINI_TIMEOUT_MS, 
+            },
         });
 
+        // Execute the call with retries
         const result = await fetchWithRetries(apiCall, MAX_RETRIES, INITIAL_DELAY_MS);
 
         const response = result.response;
@@ -133,10 +131,13 @@ exports.handler = async (event) => {
         console.error('Final failure calling Gemini API:', geminiError.message || geminiError);
         let errorMessage = 'Failed to generate code from Gemini API.';
 
-        if (geminiError.message) {
+        if (geminiError.message && geminiError.message.includes('timeout')) {
+             errorMessage = 'Generation took too long (over 8 seconds). Please try a shorter or simpler prompt.';
+        } else if (geminiError.message) {
             errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
         }
 
+        // Return 500 status for final, persistent failures
         return {
             statusCode: 500,
             headers,
