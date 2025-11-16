@@ -5,37 +5,28 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // --- Configuration Constants ---
 const MODEL_NAME = "gemini-2.5-flash"; // Fastest model
 const API_KEY = process.env.GEMINI_API_KEY;
-const MAX_RETRIES = 1; // Removing retries to save time
-const INITIAL_DELAY_MS = 500; 
+const MAX_RETRIES = 1; 
 
-// --- System Instruction and Template (Condensed for speed) ---
-const CONDENSED_PROMPT_TEMPLATE = (userPrompt) => `
-You are an expert frontend developer providing **complete, standalone** HTML, CSS, and vanilla JS (ES6+). Your output MUST be in three sections, strictly delimited by markers.
-
-**STRICT FORMAT MANDATORY:**
-1. Do NOT include any text, conversation, or explanation outside of these markers.
-2. HTML must NOT include \`<!DOCTYPE html>\`, \`<html>\`, \`<head>\`, or \`<body\`> tags.
-
-**User Request:** ${userPrompt}
-
----
-
-HTML_START
-<!-- Your generated HTML here -->
-HTML_END
-
-CSS_START
-/* Your generated CSS here */
-CSS_END
-
-JS_START
-// Your generated JavaScript here
-JS_END
+// --- System Instruction (Clean and concise for speed) ---
+const SYSTEM_INSTRUCTION = `
+You are an expert frontend developer specializing in HTML, CSS, and vanilla JS (ES6+). Your task is to generate **complete, standalone** code for the user's request. You MUST return a single JSON object with 'html', 'css', and 'js' fields. 
+IMPORTANT: The 'html' field must NOT include <!DOCTYPE html>, <html>, <head>, or <body> tags.
 `;
+
+// --- JSON Schema for Structured Output (MANDATORY) ---
+const RESPONSE_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+        html: { type: "STRING", description: "The complete HTML snippet for the requested component, without DOCTYPE, html, head, or body tags." },
+        css: { type: "STRING", description: "The standard CSS styles or a comment indicating Tailwind CSS was used (e.g., /* Tailwind used */)." },
+        js: { type: "STRING", description: "The vanilla JavaScript (ES6+) required for component interactivity. Use inline comments for explanation." },
+    },
+    required: ["html", "css", "js"],
+    propertyOrdering: ["html", "css", "js"]
+};
 
 // --- Retry Utility Function (Simplified) ---
 async function fetchWithRetries(apiCall) {
-    // Only one attempt for speed
     try {
         const result = await apiCall();
         return result;
@@ -74,22 +65,25 @@ exports.handler = async (event) => {
     const API_KEY = process.env.GEMINI_API_KEY;
 
     if (!prompt) { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Prompt is required.' }) }; }
-    if (!API_KEY) { return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: API Key missing.' }) }; }
+    if (!API_KEY) { 
+        console.error("CRITICAL: API Key is missing.");
+        return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: API Key missing.' }) }; 
+    }
 
     // --- API Call Execution ---
     try {
         const genAI = new GoogleGenerativeAI(API_KEY);
         const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-        // CRITICAL: Generate the full, single-string prompt for maximum speed.
-        const fullPrompt = CONDENSED_PROMPT_TEMPLATE(prompt);
-
         const apiCall = () => model.generateContent({
-            // Passing all instructions and query as one block to minimize processing time
-            contents: [{ role: "user", parts: [{ text: fullPrompt.trim() }] }],
+            systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION.trim() }] },
+            contents: [{ role: "user", parts: [{ text: prompt.trim() }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: RESPONSE_SCHEMA,
+            }
         });
 
-        // Execute the call without retries (to save time)
         const result = await fetchWithRetries(apiCall);
 
         const response = result.response;
@@ -99,16 +93,15 @@ exports.handler = async (event) => {
              throw new Error(`Model response was empty or blocked. Safety details: ${JSON.stringify(safetyError)}`);
         }
 
-        const text = response.text.trim();
+        // CRITICAL FIX: Parse the JSON response directly
+        const jsonText = response.text.trim();
+        const parsedJson = JSON.parse(jsonText);
 
-        // Regex remains the same to parse the output
-        const htmlMatch = text.match(/HTML_START\n([\s\S]*?)\nHTML_END/);
-        const cssMatch = text.match(/CSS_START\n([\s\S]*?)\nCSS_END/);
-        const jsMatch = text.match(/JS_START\n([\s\S]*?)\nJS_END/);
-
-        const html = htmlMatch && htmlMatch[1] ? htmlMatch[1].trim() : '';
-        const css = cssMatch && cssMatch[1] ? cssMatch[1].trim() : '';
-        const js = jsMatch && jsMatch[1] ? jsMatch[1].trim() : '';
+        const html = parsedJson.html || '';
+        const css = parsedJson.css || '';
+        const js = parsedJson.js || '';
+        // Note: The 'text' field now holds the raw JSON string
+        const text = jsonText; 
 
         return {
             statusCode: 200,
@@ -121,7 +114,7 @@ exports.handler = async (event) => {
         let errorMessage = 'Failed to generate code from Gemini API.';
 
         if (geminiError.message && (geminiError.message.includes('504') || geminiError.message.includes('timeout') || geminiError.message.includes('ECONNRESET'))) {
-            // This is the definitive Netlify timeout
+            // Displaying the definitive Netlify timeout error
             errorMessage = 'Generation request timed out (Netlify 10-second limit exceeded). Please try a shorter or simpler prompt, like "A blue button."';
         } else if (geminiError.message) {
             errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
