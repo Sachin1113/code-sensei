@@ -4,11 +4,11 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // --- Configuration Constants ---
 const MODEL_NAME = "gemini-2.5-flash"; // Fastest model
-const API_KEY = process.env.GEMINI_API_KEY;
+const MAX_RETRIES = 2; // Try up to 2 times (initial + 1 retry)
 
 // --- Prompt Template (Forcing Minimal JSON Output) ---
 const CONDENSED_PROMPT_TEMPLATE = (userPrompt) => `
-Generate a single JSON object for the UI request. The object MUST contain 'html', 'css', and 'js' keys. The 'html' value must exclude DOCTYPE, html, head, or body tags. Be concise.
+Generate a single JSON object for the UI request. The object MUST contain 'html', 'css', and 'js' keys. The 'html' value must exclude DOCTYPE, html, head, or body tags. Be extremely concise.
 
 User Request: ${userPrompt}
 
@@ -47,34 +47,53 @@ exports.handler = async (event) => {
         return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: API Key missing.' }) }; 
     }
 
-    // --- API Call Execution ---
+    // --- API Call Execution with Retry Logic ---
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const fullPrompt = CONDENSED_PROMPT_TEMPLATE(prompt);
+    let finalResult = null;
+
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: fullPrompt.trim() }] }],
+            });
+            finalResult = result;
+            break; // Success! Break the retry loop.
+        } catch (error) {
+            // Check for transient 503/timeout/overload errors
+            if (i < MAX_RETRIES - 1 && 
+                (error.message.includes('503') || error.message.includes('timeout') || error.message.includes('overloaded'))) {
+                console.warn(`Transient API error detected on try ${i + 1}. Retrying in 500ms...`);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retrying
+                continue; // Continue to the next retry attempt
+            } else {
+                // If it's a persistent error or the last retry failed, throw it.
+                throw error;
+            }
+        }
+    }
+
+
     try {
-        const genAI = new GoogleGenerativeAI(API_KEY);
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
-        // CRITICAL: Generate the full, single-string prompt for maximum speed.
-        const fullPrompt = CONDENSED_PROMPT_TEMPLATE(prompt);
-
-        const apiCall = () => model.generateContent({
-            // Minimal payload for maximum speed
-            contents: [{ role: "user", parts: [{ text: fullPrompt.trim() }] }],
-        });
-
-        // No complex retries to save precious time
-        const result = await apiCall(); 
-
-        const response = result.response;
-        
-        if (!response.text) {
-             const safetyError = response.candidates?.[0]?.safetyRatings;
-             throw new Error(`Model response was empty or blocked. Safety details: ${JSON.stringify(safetyError)}`);
+        if (!finalResult) {
+             throw new Error("API call failed after all retries.");
         }
 
-        const text = response.text.trim();
+        const response = finalResult.response;
+        
+        // FIX for: response.text.trim is not a function
+        const rawText = response.text;
+
+        if (typeof rawText !== 'string' || rawText.length === 0) {
+             const safetyError = response.candidates?.[0]?.safetyRatings;
+             throw new Error(`Model returned invalid or no text. Blocked content details: ${JSON.stringify(safetyError)}`);
+        }
+
+        const text = rawText.trim();
         let jsonText = text;
 
-        // Attempt to find the clean JSON block starting with {
-        // This is robust to cases where the model might include "JSON:" or other text
+        // Extract JSON block (robustly searches for the first '{' and last '}')
         const firstBrace = text.indexOf('{');
         const lastBrace = text.lastIndexOf('}');
         
@@ -86,8 +105,8 @@ exports.handler = async (event) => {
         try {
             parsedJson = JSON.parse(jsonText);
         } catch (e) {
-             // If parsing fails, throw an error that returns a 500 to the client.
-             throw new Error(`Failed to parse JSON response: ${e.message}. Raw text: ${jsonText.substring(0, 100)}...`);
+             // Throws an error for the outer catch block to handle and report
+             throw new Error(`Failed to parse JSON response: ${e.message}. Raw text snippet: ${jsonText.substring(0, 100)}...`);
         }
 
         const html = parsedJson.html || '';
@@ -101,16 +120,17 @@ exports.handler = async (event) => {
         };
 
     } catch (geminiError) {
-        console.error('Final failure calling Gemini API:', geminiError.message || geminiError);
+        console.error('Final function processing error:', geminiError.message || geminiError);
         let errorMessage = 'Failed to generate code from Gemini API.';
 
-        if (geminiError.message && (geminiError.message.includes('504') || geminiError.message.includes('timeout') || geminiError.message.includes('ECONNRESET'))) {
-            // This is the definitive Netlify timeout error we see in your console
+        if (geminiError.message && geminiError.message.includes('10-second limit')) {
+             // 504 Timeout error
             errorMessage = 'Generation request timed out (Netlify 10-second limit exceeded). Please try a shorter or simpler prompt, like "A blue button."';
         } else if (geminiError.message) {
             errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
         }
 
+        // Returns a 500 status to the client
         return {
             statusCode: 500,
             headers,
