@@ -7,8 +7,6 @@ const MODEL_NAME = "gemini-2.5-flash"; // Keeping flash for speed
 const API_KEY = process.env.GEMINI_API_KEY;
 const MAX_RETRIES = 3;
 const INITIAL_DELAY_MS = 1000;
-// CRITICAL: Set the Gemini API call timeout to 8 seconds (8000ms). 
-const GEMINI_TIMEOUT_MS = 8000; 
 
 // --- Retry Utility Function ---
 async function fetchWithRetries(apiCall, maxRetries, initialDelay) {
@@ -17,6 +15,8 @@ async function fetchWithRetries(apiCall, maxRetries, initialDelay) {
             const result = await apiCall();
             return result;
         } catch (error) {
+            // Check if it's a known error we should retry on (e.g., transient network issue, 500/503 status)
+            // For now, we retry on any error to maximize success chances.
             if (i === maxRetries - 1) {
                 console.error(`Final attempt failed. Throwing error:`, error.message);
                 throw error;
@@ -91,11 +91,11 @@ exports.handler = async (event) => {
             User Request: ${outputTemplate}
         `;
         
+        // FIX: The timeout parameter is NOT supported at this level for the public endpoint. 
+        // We rely solely on Netlify's 10s timeout and the internal retry logic.
         const apiCall = () => model.generateContent({
             systemInstruction: { parts: [{ text: systemInstructionText.trim() }] },
             contents: [{ role: "user", parts: [{ text: fullUserQuery.trim() }] }],
-            // FIX: Removed the invalid 'config' wrapper and put timeout here
-            timeout: GEMINI_TIMEOUT_MS, 
         });
 
         // Execute the call with retries
@@ -128,11 +128,14 @@ exports.handler = async (event) => {
         console.error('Final failure calling Gemini API:', geminiError.message || geminiError);
         let errorMessage = 'Failed to generate code from Gemini API.';
 
-        if (geminiError.message && geminiError.message.includes('timeout')) {
-             // This is the specific error when the 8-second internal timeout is hit
-             errorMessage = 'Generation took too long (over 8 seconds). Please try a shorter or simpler prompt.';
-        } else if (geminiError.message) {
+        // We only use the generic failure message now, as the specific timeout check was tied to the invalid parameter.
+        if (geminiError.message) {
             errorMessage += ` Details: ${geminiError.message.substring(0, 300)}.`;
+        }
+        
+        // Check for specific Netlify/network-related timeout error codes
+        if (geminiError.message && (geminiError.message.includes('504') || geminiError.message.includes('timeout'))) {
+            errorMessage = 'Generation request timed out (Netlify 10-second limit exceeded). Please try a significantly shorter or simpler prompt, or check Netlify function logs.';
         }
 
         // Return 500 status for final, persistent failures
